@@ -1,0 +1,1223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>宜昌环境智能监控</title>
+<style>
+  :root{
+    --bg:#03070e;
+    --panel:rgba(8,23,39,.88);
+    --panel-2:rgba(6,16,29,.92);
+    --line:rgba(64,162,208,.16);
+    --line-2:rgba(72,196,238,.36);
+    --cyan:#4fe3ff;
+    --cyan-2:#17a5c9;
+    --text:#cbe2f2;
+    --muted:#7695ac;
+    --dim:#4c6579;
+    --green:#42e09b;
+    --amber:#ffb238;
+    --red:#ff5567;
+    --mono:"Bahnschrift","DIN Alternate","Consolas",monospace;
+    --ui:"HarmonyOS Sans SC","PingFang SC","Microsoft YaHei","Segoe UI",sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;color:var(--text);font-family:var(--ui);font-size:12px;
+    background:
+      radial-gradient(1200px 620px at 50% -300px, rgba(24,120,180,.34), transparent 70%),
+      radial-gradient(900px 520px at -10% 105%, rgba(9,78,120,.18), transparent 70%),
+      linear-gradient(180deg,#040a13 0%,#03070d 55%,#040910 100%);
+    overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+    background-image:
+      linear-gradient(rgba(96,190,235,.05) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(96,190,235,.05) 1px,transparent 1px);
+    background-size:46px 46px;
+    -webkit-mask-image:radial-gradient(circle at 50% 28%,#000 10%,transparent 82%);
+    mask-image:radial-gradient(circle at 50% 28%,#000 10%,transparent 82%);
+  }
+  body::after{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+    background:radial-gradient(140% 100% at 50% 50%, transparent 55%, rgba(0,0,0,.55) 100%);
+  }
+  svg{display:block}
+  [hidden]{display:none !important}
+  button{font-family:inherit;color:inherit;background:none;border:0;cursor:pointer}
+
+  .app{position:relative;z-index:1;height:100vh;display:flex;flex-direction:column;min-height:0}
+
+  /* ---------- top brand bar ---------- */
+  .topbar{
+    height:54px;flex:none;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;
+    padding:0 18px;position:relative;
+  }
+  .topbar::after{
+    content:"";position:absolute;left:0;right:0;bottom:0;height:1px;
+    background:linear-gradient(90deg,transparent,rgba(79,227,255,.28) 22%,rgba(79,227,255,.55) 50%,rgba(79,227,255,.28) 78%,transparent);
+  }
+  .weather{display:flex;align-items:center;gap:8px;color:#a9c9de;font-size:11px;letter-spacing:.5px}
+  .weather svg{color:#ffcf5c;filter:drop-shadow(0 0 6px rgba(255,190,60,.55))}
+  .weather .temp{font-family:var(--mono);font-size:15px;color:#f2fbff;letter-spacing:1px}
+  .weather .city{color:var(--dim);border-left:1px solid rgba(90,150,190,.3);padding-left:8px}
+
+  .title-wrap{display:flex;align-items:center;gap:16px;justify-self:center}
+  .title-wrap .wing{width:120px;height:8px;position:relative;opacity:.8}
+  .title-wrap .wing::before{content:"";position:absolute;top:3px;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(79,227,255,.75))}
+  .title-wrap .wing::after{content:"";position:absolute;top:0;right:0;width:60%;height:7px;background:linear-gradient(90deg,transparent,rgba(79,227,255,.12));transform:skewX(-40deg)}
+  .title-wrap .wing.right{transform:scaleX(-1)}
+  .title-wrap h1{
+    margin:0;font-size:21px;font-weight:600;letter-spacing:6px;padding-left:6px;
+    background:linear-gradient(180deg,#ffffff 0%,#c8f6ff 55%,#59c9e9 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    filter:drop-shadow(0 0 14px rgba(72,214,255,.45));
+    white-space:nowrap;
+  }
+  .clock{justify-self:end;display:flex;align-items:baseline;gap:12px}
+  .clock .time{font-family:var(--mono);font-size:16px;letter-spacing:1.5px;color:#ecfaff;text-shadow:0 0 12px rgba(79,227,255,.4)}
+  .clock .date{font-family:var(--mono);font-size:11px;color:#7c9cb4;letter-spacing:.5px}
+
+  /* ---------- layout ---------- */
+  .layout{
+    flex:1;min-height:0;display:grid;
+    grid-template-columns:48px minmax(0,1fr) 326px;
+    gap:10px;padding:8px 12px 10px 0;
+  }
+
+  /* ---------- icon rail ---------- */
+  .iconrail{
+    position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;
+    padding:8px 0;border-right:1px solid rgba(60,150,200,.14);
+  }
+  .iconrail::before{content:"";position:absolute;right:-1px;top:10%;height:80%;width:1px;background:linear-gradient(180deg,transparent,rgba(79,227,255,.35),transparent)}
+  .rail-btn{
+    width:32px;height:32px;display:grid;place-items:center;color:#688aa2;border:1px solid transparent;
+    clip-path:polygon(0 0,100% 0,100% 72%,72% 100%,0 100%);
+    transition:color .18s,background .18s,border-color .18s;
+  }
+  .rail-btn:hover{color:#bfefff;background:rgba(40,140,190,.14);border-color:rgba(79,227,255,.25)}
+  .rail-btn.active{color:#e8fdff;background:linear-gradient(140deg,rgba(60,200,240,.28),rgba(20,90,130,.12));border-color:rgba(79,227,255,.5);box-shadow:0 0 16px rgba(60,210,255,.22) inset}
+  .rail-spacer{flex:1}
+
+  /* ---------- center column ---------- */
+  .center{display:flex;flex-direction:column;gap:9px;min-width:0;min-height:0}
+  .brandbar{height:40px;flex:none;display:flex;align-items:center;gap:12px;min-width:0}
+  .brand{display:flex;align-items:center;gap:8px;flex:none}
+  .brand-icon{
+    width:30px;height:30px;display:grid;place-items:center;color:#b8f4ff;
+    background:linear-gradient(140deg,rgba(79,227,255,.3),rgba(20,80,120,.08));
+    border:1px solid rgba(79,227,255,.5);
+    clip-path:polygon(0 0,100% 0,100% 70%,70% 100%,0 100%);
+    box-shadow:0 0 18px rgba(60,210,255,.25);
+  }
+  .brand h2{margin:0;font-size:15px;font-weight:600;letter-spacing:2px;color:#e6f8ff}
+  .tag{
+    display:flex;align-items:center;gap:6px;height:24px;padding:0 10px;font-size:10.5px;color:#8fb6ce;
+    border:1px solid rgba(70,170,210,.22);background:rgba(9,32,50,.55);
+    clip-path:polygon(0 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%);
+    white-space:nowrap;
+  }
+  .tag .pulse{width:5px;height:5px;border-radius:50%;background:var(--cyan);box-shadow:0 0 8px var(--cyan);animation:pulse 2.4s infinite}
+  .tag.ai{color:#96e7c4;border-color:rgba(66,224,155,.28);background:rgba(10,40,32,.5)}
+  .tag.ai .pulse{background:var(--green);box-shadow:0 0 8px var(--green)}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+  .brandbar .spacer{flex:1}
+  .user{display:flex;align-items:center;gap:9px;flex:none;padding-left:12px}
+  .avatar{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;color:#9fe6ff;background:linear-gradient(150deg,#12415c,#0a2236);border:1px solid rgba(79,227,255,.35)}
+  .user .name{display:flex;flex-direction:column;line-height:1.3}
+  .user .name b{font-size:11.5px;font-weight:500;color:#d7eefc}
+  .user .name i{font-style:normal;font-size:9.5px;color:#63849b}
+  .live{display:flex;align-items:center;gap:5px;font-size:9.5px;color:#59d6a2;border:1px solid rgba(66,224,155,.25);padding:2px 7px;background:rgba(10,40,32,.4)}
+  .live i{width:4px;height:4px;border-radius:50%;background:#42e09b;box-shadow:0 0 6px #42e09b;animation:pulse 1.8s infinite}
+
+  /* ---------- line tabs ---------- */
+  .lines{flex:none;display:flex;align-items:center;gap:7px;min-width:0;overflow-x:auto;scrollbar-width:none}
+  .lines::-webkit-scrollbar{display:none}
+  .line-tab{
+    position:relative;flex:none;height:32px;min-width:92px;display:flex;align-items:center;justify-content:center;gap:7px;
+    padding:0 14px;font-size:12px;letter-spacing:1px;color:#88aec6;
+    border:1px solid rgba(62,152,198,.2);
+    background:linear-gradient(180deg,rgba(14,42,64,.82),rgba(8,22,36,.78));
+    clip-path:polygon(9px 0,100% 0,100% calc(100% - 9px),calc(100% - 9px) 100%,0 100%,0 9px);
+    transition:color .18s,border-color .18s,background .18s;
+  }
+  .line-tab svg{opacity:.7}
+  .line-tab:hover{color:#d8f6ff;border-color:rgba(79,227,255,.4)}
+  .line-tab.active{
+    color:#f0fdff;border-color:rgba(79,227,255,.65);
+    background:linear-gradient(180deg,rgba(38,126,168,.72),rgba(10,44,66,.9));
+    box-shadow:inset 0 0 22px rgba(60,210,255,.2);
+  }
+  .line-tab.active::after{
+    content:"";position:absolute;left:14%;right:14%;bottom:0;height:1px;
+    background:linear-gradient(90deg,transparent,var(--cyan),transparent);
+    box-shadow:0 0 8px rgba(79,227,255,.8);
+  }
+  .line-tab .alarm{
+    width:13px;height:13px;display:grid;place-items:center;font-size:9px;font-weight:700;color:#fff;
+    background:linear-gradient(180deg,#ff7a52,#e83a35);clip-path:polygon(50% 0,100% 100%,0 100%);
+    filter:drop-shadow(0 0 6px rgba(255,80,70,.7));
+  }
+
+  /* ---------- toolbar ---------- */
+  .toolbar{
+    flex:none;display:flex;align-items:center;gap:8px;min-height:32px;
+    padding:0 2px;flex-wrap:wrap;
+  }
+  .tb-btn{
+    height:26px;padding:0 10px;display:flex;align-items:center;gap:5px;font-size:10.5px;color:#a5c7dc;
+    border:1px solid rgba(70,170,210,.24);background:rgba(9,30,47,.6);
+    clip-path:polygon(0 0,100% 0,100% calc(100% - 5px),calc(100% - 5px) 100%,0 100%);
+    transition:.18s;
+  }
+  .tb-btn:hover:not([disabled]){color:#e6fbff;border-color:rgba(79,227,255,.55);background:rgba(20,66,92,.7)}
+  .tb-btn[disabled]{opacity:.35;cursor:not-allowed}
+  .switch{height:26px;padding:0 10px 0 8px;display:flex;align-items:center;gap:7px;font-size:10.5px;color:#c6e9f8;border:1px solid rgba(79,227,255,.32);background:rgba(10,42,62,.65)}
+  .switch .track{width:26px;height:14px;border-radius:8px;background:rgba(60,110,140,.5);position:relative;transition:.2s}
+  .switch .knob{position:absolute;top:2px;left:2px;width:10px;height:10px;border-radius:50%;background:#8fb4c9;transition:.2s}
+  .switch[aria-checked="true"] .track{background:rgba(30,150,190,.55);box-shadow:0 0 10px rgba(79,227,255,.3)}
+  .switch[aria-checked="true"] .knob{left:14px;background:#bff6ff;box-shadow:0 0 8px var(--cyan)}
+  .chip{
+    height:26px;padding:0 10px;display:flex;align-items:center;gap:6px;font-size:10.5px;color:#a5c7dc;
+    border:1px solid rgba(70,170,210,.24);background:rgba(9,30,47,.6);
+  }
+  .chip:hover{color:#e6fbff;border-color:rgba(79,227,255,.45)}
+  .chip[aria-pressed="true"]{color:#ffd6a3;border-color:rgba(255,178,56,.55);background:rgba(70,42,12,.55)}
+  .chip-count{
+    font-family:var(--mono);font-size:9.5px;padding:0 5px;height:15px;display:grid;place-items:center;
+    background:rgba(255,178,56,.16);border:1px solid rgba(255,178,56,.35);color:#ffc663;
+  }
+  .tb-hint{
+    margin-left:auto;font-size:10px;color:#6f91a9;letter-spacing:.2px;white-space:nowrap;
+    display:flex;align-items:center;gap:5px;
+  }
+  .tb-hint .hint-ico{width:13px;height:13px;display:grid;place-items:center;border:1px solid rgba(79,227,255,.4);color:#7fd8ef;font-size:9px;font-family:var(--mono);flex:none}
+  .tb-hint .hint-key{color:#9ec3d8;border:1px solid rgba(90,150,190,.3);padding:0 4px;line-height:14px;font-family:var(--mono);font-size:9px}
+  .tb-hint .c-warn{color:var(--amber)}
+  .tb-hint .c-danger{color:var(--red)}
+
+  /* ---------- panel base ---------- */
+  .panel{
+    position:relative;min-width:0;min-height:0;display:flex;flex-direction:column;
+    background:linear-gradient(158deg,rgba(11,29,48,.92),rgba(4,12,22,.94));
+    clip-path:polygon(0 9px,9px 0,calc(100% - 15px) 0,100% 15px,100% calc(100% - 9px),calc(100% - 9px) 100%,9px 100%,0 calc(100% - 9px));
+  }
+  .panel::before{
+    content:"";position:absolute;inset:0;padding:1px;pointer-events:none;z-index:2;
+    background:linear-gradient(150deg,rgba(85,220,255,.45),rgba(28,80,112,.1) 38%,rgba(60,150,190,.12) 65%,rgba(85,220,255,.32));
+    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;mask-composite:exclude;
+    clip-path:inherit;
+  }
+  .panel-head{
+    position:relative;z-index:3;flex:none;height:34px;display:flex;align-items:center;gap:8px;padding:0 10px;
+    background:linear-gradient(90deg,rgba(20,64,96,.85),rgba(10,30,48,.25) 62%,transparent);
+  }
+  .panel-head::after{
+    content:"";position:absolute;left:0;right:30%;bottom:0;height:1px;
+    background:linear-gradient(90deg,rgba(79,227,255,.75),rgba(79,227,255,.05));
+  }
+  .ph-icon{width:22px;height:22px;display:grid;place-items:center;color:#8fe9ff;flex:none;border:1px solid rgba(79,227,255,.28);background:rgba(20,80,110,.35)}
+  .panel-head h3{margin:0;font-size:12.5px;font-weight:500;letter-spacing:1.2px;color:#dff5ff;white-space:nowrap}
+  .panel-head .ph-cut{width:46px;height:10px;background:linear-gradient(90deg,rgba(79,227,255,.5),transparent);transform:skewX(-45deg);margin-left:2px}
+  .panel-head .badge{
+    margin-left:2px;font-family:var(--mono);font-size:10px;min-width:18px;height:16px;padding:0 5px;
+    display:grid;place-items:center;color:#ffe2e5;background:rgba(255,70,86,.22);border:1px solid rgba(255,85,103,.55);
+    box-shadow:0 0 10px rgba(255,70,86,.25);
+  }
+  .panel-head .ph-right{margin-left:auto;font-size:9.5px;color:#5f8099;letter-spacing:.5px;display:flex;align-items:center;gap:5px}
+  .panel-body{position:relative;z-index:1;flex:1;min-height:0;display:flex;flex-direction:column}
+
+  /* ---------- tables ---------- */
+  .tables{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr;gap:9px}
+  .table-panel{min-height:0}
+  .tbl-title{
+    flex:none;height:27px;display:flex;align-items:center;gap:8px;padding:0 10px;
+    background:linear-gradient(90deg,rgba(22,66,96,.55),rgba(8,22,36,.2) 70%,transparent);
+    border-bottom:1px solid rgba(64,160,205,.12);
+  }
+  .tbl-title .dot{width:5px;height:5px;background:var(--cyan);box-shadow:0 0 8px var(--cyan);transform:rotate(45deg)}
+  .tbl-title .t-name{font-size:10.5px;letter-spacing:.8px;color:#a9cee2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tbl-title .t-meta{margin-left:auto;font-family:var(--mono);font-size:9px;color:#5f839c;white-space:nowrap}
+  .tbl-title .t-mode{font-size:9px;color:#7fd3e8;border:1px solid rgba(79,227,255,.25);padding:1px 5px;white-space:nowrap}
+  .tbl-title .t-mode.flat{color:#8e9dab;border-color:rgba(120,150,170,.25)}
+  .tbl-wrap{flex:1;min-height:0;overflow:auto;scrollbar-gutter:stable}
+  .tbl-wrap::-webkit-scrollbar{width:6px;height:6px}
+  .tbl-wrap::-webkit-scrollbar-thumb{background:rgba(70,150,190,.35)}
+  .tbl-wrap::-webkit-scrollbar-track{background:rgba(255,255,255,.03)}
+
+  .thead,.row{
+    display:grid;align-items:center;
+    grid-template-columns:minmax(196px,1.72fr) repeat(6,minmax(44px,.52fr));
+    min-width:468px;
+  }
+  .thead{
+    position:sticky;top:0;z-index:4;height:35px;
+    background:linear-gradient(180deg,#0b2034,#081725);
+    border-bottom:1px solid rgba(64,170,215,.25);
+    box-shadow:0 6px 14px rgba(0,0,0,.35);
+  }
+  .thead .cell{font-size:10px;color:#8db4ca;letter-spacing:.4px;text-align:right;padding:0 5px;white-space:nowrap}
+  .thead .cell:first-child{text-align:left;padding-left:10px;color:#9cc2d7}
+  .thead .unit{display:block;font-size:8px;color:#54748b;letter-spacing:0;margin-top:1px;font-weight:400}
+  .row{height:27px;border-bottom:1px solid rgba(80,140,178,.08);position:relative;transition:background .15s,box-shadow .15s;user-select:none}
+  .row .cell{padding:0 5px;text-align:right;overflow:hidden;white-space:nowrap}
+  .row .cell.room{text-align:left;padding-left:10px;display:flex;align-items:center;gap:6px;min-width:0}
+  .row .num{font-family:var(--mono);font-size:10.5px;letter-spacing:0;font-variant-numeric:tabular-nums}
+  .row.alt{background:rgba(255,255,255,.017)}
+  .row.detail:hover{background:rgba(79,227,255,.055)}
+  .row.detail .cell.room{padding-left:22px;color:#a9c9dd;font-size:10.5px}
+  .row.detail .tree{position:relative;width:12px;height:14px;flex:none;opacity:.55}
+  .row.detail .tree::before{content:"";position:absolute;left:0;top:-6px;bottom:50%;width:1px;background:rgba(90,150,190,.4)}
+  .row.detail .tree::after{content:"";position:absolute;left:0;top:50%;width:8px;height:1px;background:rgba(90,150,190,.4)}
+  .pt-no{font-family:var(--mono);font-size:9px;color:#5f93b1;border:1px solid rgba(70,150,190,.22);padding:0 3px;line-height:13px;flex:none}
+  .pt-tag{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#9fc2d6}
+  .row.flat{height:30px}
+  .row.flat .cell.room{color:#bfdced;font-size:11px}
+  .row.flat .flat-tag{font-size:9px;color:#5d839d;border:1px solid rgba(70,140,180,.18);padding:0 3px;line-height:13px;flex:none}
+
+  .grp{
+    height:38px;cursor:pointer;outline:none;
+    background:linear-gradient(90deg,rgba(19,54,82,.82),rgba(9,26,42,.42) 72%,rgba(9,26,42,.15));
+    border-bottom:1px solid rgba(70,150,190,.13);
+    --sev:#2f6c8d;
+  }
+  .grp::before{
+    content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--sev);
+    box-shadow:0 0 9px var(--sev);opacity:.9;
+  }
+  .grp:hover{background:linear-gradient(90deg,rgba(26,74,108,.9),rgba(11,32,50,.55) 72%,rgba(9,26,42,.2))}
+  .grp:focus-visible{box-shadow:inset 0 0 0 1px rgba(79,227,255,.6)}
+  .grp .room{padding-left:7px;gap:5px}
+  .arrow{width:13px;height:13px;flex:none;display:grid;place-items:center;color:#63c6e2;transition:transform .22s cubic-bezier(.3,.9,.4,1)}
+  .grp[aria-expanded="true"] .arrow{transform:rotate(90deg)}
+  .g-text{display:flex;flex-direction:column;justify-content:center;gap:2px;min-width:0;line-height:1.1}
+  .room-name{font-size:11.5px;color:#d8f0fd;letter-spacing:.2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+  .g-meta{display:flex;align-items:center;gap:5px;font-size:8.5px;color:#6f93ab;line-height:1.1}
+  .pt-count{font-size:8.5px;color:#6f93ab;white-space:nowrap;flex:none}
+  .alarm-chip{
+    font-family:var(--mono);font-size:8px;line-height:11px;padding:0 4px;flex:none;white-space:nowrap;
+    color:#ff9aa5;border:1px solid rgba(255,85,103,.45);background:rgba(255,60,80,.14);
+    text-shadow:0 0 8px rgba(255,80,95,.5);
+  }
+  .grp .num{font-size:10px;color:#7ea6bd}
+  .grp .num .rng{letter-spacing:-.2px}
+  .grp .num.agg-ok{color:#4ecf95}
+  .grp .num.agg-warn{color:#ffb238}
+  .grp .num.agg-danger{color:#ff5567;text-shadow:0 0 10px rgba(255,70,90,.35)}
+  .grp .num.agg-none{color:#40596d}
+  .sev-ok{color:#43dd9a}
+  .sev-warn{color:#ffb238}
+  .sev-danger{color:#ff5a6b}
+  .sev-none{color:#415a6e}
+
+  .tbl-empty{min-height:120px;display:flex;align-items:center;justify-content:center;gap:8px;color:#54748b;font-size:11px;letter-spacing:1px}
+
+  /* ---------- lower panels ---------- */
+  .lower{flex:none;height:194px;display:grid;grid-template-columns:1.06fr .94fr;gap:9px;min-height:0}
+  .alert-list{flex:1;min-height:0;overflow:auto;padding:4px 0}
+  .alert-list::-webkit-scrollbar{width:5px}
+  .alert-list::-webkit-scrollbar-thumb{background:rgba(70,150,190,.3)}
+  .alert{
+    display:flex;gap:9px;padding:6px 10px;border-bottom:1px dashed rgba(80,140,178,.12);
+  }
+  .alert:hover{background:rgba(79,227,255,.04)}
+  .lvl{
+    flex:none;width:34px;height:17px;display:grid;place-items:center;font-size:9px;letter-spacing:1px;margin-top:1px;
+    border:1px solid;line-height:1;
+  }
+  .lvl.bad{color:#ff8d99;border-color:rgba(255,85,103,.5);background:rgba(255,60,80,.13)}
+  .lvl.warn{color:#ffcf7a;border-color:rgba(255,178,56,.45);background:rgba(255,160,30,.1)}
+  .alert .txt{font-size:10px;line-height:1.55;color:#a7c6d9;min-width:0}
+  .alert .txt b{font-weight:500;color:#d7eefb}
+  .alert .txt .hl{color:#ff8f9a}
+  .alert .time{display:block;margin-top:2px;font-family:var(--mono);font-size:9px;color:#537289}
+  .hexstat{
+    flex:none;width:118px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;
+    border-left:1px dashed rgba(70,150,190,.16);background:linear-gradient(180deg,rgba(20,60,88,.2),transparent);
+  }
+  .hex{
+    width:54px;height:58px;display:grid;place-items:center;position:relative;
+    clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
+    background:linear-gradient(170deg,#ff9a4d,#ff4a3d 55%,#a3172a);
+    filter:drop-shadow(0 0 12px rgba(255,80,60,.42));
+  }
+  .hex::before{content:"";position:absolute;inset:2px;clip-path:inherit;background:linear-gradient(170deg,#1b1016,#120a10)}
+  .hex span{position:relative;z-index:1;font-family:var(--mono);font-size:19px;font-weight:600;color:#ffd9c9;text-shadow:0 0 12px rgba(255,110,80,.7)}
+  .hex.blue{background:linear-gradient(170deg,#57d4ff,#1f7fb4 55%,#0d3d63);filter:drop-shadow(0 0 12px rgba(60,190,255,.35))}
+  .hex.blue::before{background:linear-gradient(170deg,#0a1a26,#081420)}
+  .hex.blue span{color:#c9f6ff;text-shadow:0 0 12px rgba(79,227,255,.6)}
+  .hexstat .cap{font-size:9px;color:#6b8ca3;letter-spacing:.3px;text-align:center;line-height:1.4}
+
+  /* empty state */
+  .empty{flex:1;display:flex;align-items:center;justify-content:center;gap:10px;color:#4f7088;font-size:11px;letter-spacing:1px}
+  .empty svg{opacity:.4}
+  .risk-sum{
+    flex:none;width:126px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+    border-left:1px dashed rgba(70,150,190,.16);
+  }
+  .risk-sum .pct{font-family:var(--mono);font-size:10px;color:#93d7ee}
+  .risk-sum .cap{font-size:9px;color:#5d7d95;text-align:center;line-height:1.4}
+
+  /* ---------- right rail ---------- */
+  .rail{display:flex;flex-direction:column;gap:9px;min-height:0}
+  .highrisk-panel{flex:none}
+  .adjust-panel{flex:0 0 206px;min-height:132px}
+  .risk-grid-head,.risk-row{
+    display:grid;grid-template-columns:60px minmax(0,1fr) 56px 54px;align-items:center;gap:4px;
+    padding:0 8px;
+  }
+  .risk-grid-head{height:26px;font-size:9.5px;color:#7fa3b9;background:linear-gradient(180deg,rgba(18,50,74,.65),rgba(8,22,34,.4));border-bottom:1px solid rgba(64,160,205,.16)}
+  .risk-grid-head .r{text-align:right}
+  .risk-grid-head .c{text-align:center}
+  .risk-row{height:33px;border-bottom:1px solid rgba(80,140,178,.09);font-size:10px}
+  .risk-row:hover{background:rgba(79,227,255,.04)}
+  .risk-row .line{color:#7fa6bd;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:9.5px}
+  .risk-row .room{color:#cbe5f3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .risk-row .score{font-family:var(--mono);font-size:11px;text-align:right;color:#ffd166;text-shadow:0 0 10px rgba(255,190,60,.25)}
+  .risk-row .score.hot{color:#ff9a45;text-shadow:0 0 10px rgba(255,120,40,.3)}
+  .detail-btn{
+    display:flex;align-items:center;justify-content:center;gap:2px;height:20px;font-size:9px;color:#9fe8ff;
+    border:1px solid rgba(79,227,255,.4);background:linear-gradient(180deg,rgba(40,150,190,.35),rgba(10,50,72,.35));
+    clip-path:polygon(0 0,100% 0,100% calc(100% - 4px),calc(100% - 4px) 100%,0 100%);
+    transition:.16s;white-space:nowrap;
+  }
+  .detail-btn:hover{background:linear-gradient(180deg,rgba(60,190,230,.5),rgba(14,70,96,.5));box-shadow:0 0 12px rgba(79,227,255,.3)}
+  .pager{flex:none;height:32px;display:flex;align-items:center;justify-content:center;gap:12px;border-top:1px solid rgba(70,150,190,.1)}
+  .pager button{width:22px;height:20px;display:grid;place-items:center;color:#79b6cf;border:1px solid rgba(70,160,200,.25);background:rgba(12,38,56,.6)}
+  .pager button:hover:not([disabled]){color:#d8f8ff;border-color:rgba(79,227,255,.55)}
+  .pager button[disabled]{opacity:.25;cursor:not-allowed}
+  .pager .pnum{font-family:var(--mono);font-size:10px;color:#87aec4;letter-spacing:1px}
+
+  .adjust-head{height:26px;display:grid;grid-template-columns:1fr 72px 56px;align-items:center;padding:0 8px;font-size:9.5px;color:#7fa3b9;background:linear-gradient(180deg,rgba(18,50,74,.55),rgba(8,22,34,.3));border-bottom:1px solid rgba(64,160,205,.14)}
+  .adjust-head .r{text-align:right}
+  .adjust-head .c{text-align:center}
+  .adjust-empty{flex:1;display:flex;align-items:center;justify-content:center;color:#4d6d84;font-size:11px;letter-spacing:2px;background:repeating-linear-gradient(180deg,transparent 0 29px,rgba(80,150,190,.055) 29px 30px)}
+
+  /* toast */
+  .toast{
+    position:fixed;left:50%;bottom:34px;transform:translate(-50%,14px);z-index:60;
+    padding:9px 16px;font-size:11px;color:#d9f5ff;letter-spacing:.5px;
+    background:linear-gradient(180deg,rgba(16,58,84,.96),rgba(7,24,38,.96));
+    border:1px solid rgba(79,227,255,.45);box-shadow:0 0 26px rgba(20,140,190,.35);
+    opacity:0;pointer-events:none;transition:.22s;
+  }
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+
+  .detail.row{animation:rowIn .18s ease both}
+  @keyframes rowIn{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:none}}
+
+  @media (max-width:1380px){
+    .layout{grid-template-columns:46px minmax(0,1fr) 292px}
+    .thead,.row{grid-template-columns:minmax(168px,1.6fr) repeat(6,minmax(42px,.5fr))}
+    .tb-hint{display:none}
+    .panel-head .ph-cut{display:none}
+  }
+  @media (max-width:1120px){
+    body{overflow:auto}
+    .app{height:auto;min-height:100vh}
+    .layout{grid-template-columns:46px minmax(0,1fr)}
+    .rail{grid-column:2;flex-direction:row;align-items:stretch}
+    .rail .panel{flex:1}
+    .tables{grid-template-columns:1fr;min-height:520px}
+    .lower{grid-template-columns:1fr;height:auto}
+    .lower .panel{height:194px}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- 顶部 -->
+  <header class="topbar">
+    <div class="weather">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+        <circle cx="12" cy="12" r="4.2"/>
+        <path d="M12 2v2.4M12 19.6V22M2 12h2.4M19.6 12H22M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M19.1 4.9l-1.7 1.7M6.6 17.4l-1.7 1.7"/>
+      </svg>
+      <span class="temp">6~16℃</span>
+      <span class="city">宜昌</span>
+    </div>
+    <div class="title-wrap">
+      <span class="wing"></span>
+      <h1>宜昌环境智能监控</h1>
+      <span class="wing right"></span>
+    </div>
+    <div class="clock">
+      <span class="time" id="clock">10:12:38</span>
+      <span class="date" id="date">2026.11.09 星期一</span>
+    </div>
+  </header>
+
+  <div class="layout">
+
+    <!-- 左侧图标导航 -->
+    <aside class="iconrail">
+      <button class="rail-btn active" title="监控总览" aria-label="监控总览">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      </button>
+      <button class="rail-btn" title="数据看板" aria-label="数据看板">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg>
+      </button>
+      <button class="rail-btn" title="告警中心" aria-label="告警中心">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3l9 16H3z"/><path d="M12 9v4M12 16.4v.2"/></svg>
+      </button>
+      <button class="rail-btn" title="产线地图" aria-label="产线地图">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 3L3 6v15l6-3 6 3 6-3V3l-6 3-6-3z"/><path d="M9 3v15M15 6v15"/></svg>
+      </button>
+      <button class="rail-btn" title="设备台账" aria-label="设备台账">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="18" height="6" rx="1"/><rect x="3" y="14" width="18" height="6" rx="1"/><path d="M7 7h.01M7 17h.01"/></svg>
+      </button>
+      <button class="rail-btn" title="能效分析" aria-label="能效分析">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M13 2L4 14h6l-1 8 9-12h-6z"/></svg>
+      </button>
+      <div class="rail-spacer"></div>
+      <button class="rail-btn" title="系统设置" aria-label="系统设置">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-2.9 1.2 2 2 0 11-4 0 1.7 1.7 0 00-2.9-1.2l-.1.1a2 2 0 11-2.8-2.8l.1-.1A1.7 1.7 0 003 15a2 2 0 110-4 1.7 1.7 0 001.2-2.9l-.1-.1a2 2 0 112.8-2.8l.1.1A1.7 1.7 0 0011 4.6a2 2 0 114 0 1.7 1.7 0 002.9 1.2l.1-.1a2 2 0 112.8 2.8l-.1.1A1.7 1.7 0 0021 11a2 2 0 110 4z"/></svg>
+      </button>
+    </aside>
+
+    <div class="center">
+      <!-- 品牌 + 标签 + 用户 -->
+      <div class="brandbar">
+        <div class="brand">
+          <span class="brand-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2l8 4.5v9L12 20l-8-4.5v-9z"/><path d="M12 7.5l4 2.2v4.6L12 16.5l-4-2.2V9.7z"/></svg>
+          </span>
+          <h2>环境中枢</h2>
+        </div>
+        <div class="tag"><span class="pulse"></span>全部产线 · 多维度实时监控</div>
+        <div class="tag ai"><span class="pulse"></span>AI预警模型守护</div>
+        <div class="spacer"></div>
+        <div class="user">
+          <span class="avatar">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="8" r="3.4"/><path d="M5 20c.8-3.6 3.6-5.6 7-5.6s6.2 2 7 5.6"/></svg>
+          </span>
+          <span class="name"><b>管理员</b><i>超级管理员</i></span>
+          <span class="live"><i></i>实时</span>
+        </div>
+      </div>
+
+      <!-- 产线标签 -->
+      <nav class="lines" id="lines" aria-label="产线切换"></nav>
+
+      <!-- 折叠工具栏 -->
+      <div class="toolbar">
+        <button class="switch" id="foldSwitch" role="switch" aria-checked="true">
+          <span class="track"><span class="knob"></span></span>
+          <span>按房间折叠</span>
+        </button>
+        <button class="tb-btn" id="expandAll" title="展开所有房间">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>全部展开
+        </button>
+        <button class="tb-btn" id="collapseAll" title="收起所有房间">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 15l-6-6-6 6"/></svg>全部收起
+        </button>
+        <button class="chip" id="abnFilter" aria-pressed="false">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l9 16H3z"/><path d="M12 9v4M12 16.5v.2"/></svg>
+          仅看超标<span class="chip-count" id="abnCount">0</span>
+        </button>
+        <div class="tb-hint">
+          <span class="hint-ico">i</span>
+          点击房间行展开/收起 · 折叠显示最小值~最大值 · <span class="c-warn">橙</span>/<span class="c-danger">红</span> 表示有超标点位 · <span class="hint-key">Enter</span><span class="hint-key">Space</span> 可切换
+        </div>
+      </div>
+
+      <!-- 两张主表 -->
+      <section class="tables">
+        <section class="panel table-panel" data-table="a">
+          <div class="tbl-title">
+            <span class="dot"></span>
+            <span class="t-name" data-title="a">ED01 · 环境实时数据 A</span>
+            <span class="t-mode" data-mode="a">折叠视图</span>
+            <span class="t-meta" data-meta="a">15 点位 · 10 房间</span>
+          </div>
+          <div class="tbl-wrap" id="wrap-a" role="table" aria-label="环境实时数据 A" aria-colcount="7">
+            <div class="thead" role="row">
+              <div class="cell" role="columnheader">房间</div>
+              <div class="cell" role="columnheader">温度<span class="unit">℃</span></div>
+              <div class="cell" role="columnheader">露点<span class="unit">℃</span></div>
+              <div class="cell" role="columnheader">湿度<span class="unit">%</span></div>
+              <div class="cell" role="columnheader">压差<span class="unit">Pa</span></div>
+              <div class="cell" role="columnheader">PM0.5<span class="unit">pcs/m³</span></div>
+              <div class="cell" role="columnheader">PM5<span class="unit">pcs/m³</span></div>
+            </div>
+            <div id="body-a" role="rowgroup"></div>
+          </div>
+        </section>
+
+        <section class="panel table-panel" data-table="b">
+          <div class="tbl-title">
+            <span class="dot"></span>
+            <span class="t-name" data-title="b">ED01 · 环境实时数据 B</span>
+            <span class="t-mode" data-mode="b">折叠视图</span>
+            <span class="t-meta" data-meta="b">5 点位 · 1 房间</span>
+          </div>
+          <div class="tbl-wrap" id="wrap-b" role="table" aria-label="环境实时数据 B" aria-colcount="7">
+            <div class="thead" role="row">
+              <div class="cell" role="columnheader">房间</div>
+              <div class="cell" role="columnheader">温度<span class="unit">℃</span></div>
+              <div class="cell" role="columnheader">露点<span class="unit">℃</span></div>
+              <div class="cell" role="columnheader">湿度<span class="unit">%</span></div>
+              <div class="cell" role="columnheader">压差<span class="unit">Pa</span></div>
+              <div class="cell" role="columnheader">PM0.5<span class="unit">pcs/m³</span></div>
+              <div class="cell" role="columnheader">PM5<span class="unit">pcs/m³</span></div>
+            </div>
+            <div id="body-b" role="rowgroup"></div>
+          </div>
+        </section>
+      </section>
+
+      <!-- 底部 -->
+      <section class="lower">
+        <section class="panel alert-panel">
+          <div class="panel-head">
+            <span class="ph-icon">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l9 16H3z"/><path d="M12 9v4M12 16.5v.2"/></svg>
+            </span>
+            <h3>待处告警与预警</h3>
+            <span class="badge">4</span>
+            <span class="ph-cut"></span>
+            <span class="ph-right">实时推送 · 30s 刷新</span>
+          </div>
+          <div class="panel-body" style="flex-direction:row">
+            <div class="alert-list" id="alertList"></div>
+            <div class="hexstat">
+              <div class="hex"><span>4</span></div>
+              <div class="cap">待处理告警与预警总数</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel event-panel">
+          <div class="panel-head">
+            <span class="ph-icon">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l7 3v6c0 4.2-3 7.4-7 9-4-1.6-7-4.8-7-9V6z"/><path d="M9.3 12l1.9 1.9 3.6-3.7"/></svg>
+            </span>
+            <h3>设施&amp;房间环境智能风险事件</h3>
+            <span class="ph-cut"></span>
+            <span class="ph-right">近 7 日</span>
+          </div>
+          <div class="panel-body" style="flex-direction:row">
+            <div class="empty">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 7h16M4 12h16M4 17h10"/></svg>
+              暂无数据
+            </div>
+            <div class="risk-sum">
+              <div class="hex blue"><span>0</span></div>
+              <div class="pct">0%</div>
+              <div class="cap">智运风险事件总量 / 总数占比</div>
+            </div>
+          </div>
+        </section>
+      </section>
+    </div>
+
+    <!-- 右侧 -->
+    <aside class="rail">
+      <section class="panel highrisk-panel">
+        <div class="panel-head">
+          <span class="ph-icon">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l7 3v6c0 4.2-3 7.4-7 9-4-1.6-7-4.8-7-9V6z"/></svg>
+          </span>
+          <h3>环境高风险房间</h3>
+          <span class="ph-cut"></span>
+          <span class="ph-right">TOP 15</span>
+        </div>
+        <div class="panel-body">
+          <div class="risk-grid-head">
+            <div>产线</div>
+            <div>风险房间</div>
+            <div class="r">风险评分</div>
+            <div class="c">操作</div>
+          </div>
+          <div id="riskList"></div>
+          <div class="pager">
+            <button id="riskPrev" aria-label="上一页">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M15 5l-7 7 7 7"/></svg>
+            </button>
+            <span class="pnum" id="riskPage">1 / 3</span>
+            <button id="riskNext" aria-label="下一页">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 5l7 7-7 7"/></svg>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel adjust-panel">
+        <div class="panel-head">
+          <span class="ph-icon">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="2.2"/><path d="M12 3c2.6 2.5 2.6 6 0 9M21 12c-2.5-2.6-6-2.6-9 0M12 21c-2.6-2.5-2.6-6 0-9M3 12c2.5 2.6 6 2.6 9 0"/></svg>
+          </span>
+          <h3>今日环境自动调节次数</h3>
+          <span class="ph-cut"></span>
+        </div>
+        <div class="panel-body">
+          <div class="adjust-head">
+            <div>DHU/AHU</div>
+            <div class="r">调试次数</div>
+            <div class="c">操作</div>
+          </div>
+          <div class="adjust-empty">暂无数据</div>
+        </div>
+      </section>
+    </aside>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ============ 指标与阈值 ============ */
+  const METRICS = [
+    {key:'temp', label:'温度', unit:'℃', digits:1, warnHigh:26, dangerHigh:27.5},
+    {key:'dew',  label:'露点', unit:'℃', digits:1, warnHigh:-30, dangerHigh:-25},
+    {key:'hum',  label:'湿度', unit:'%',  digits:1, warnLow:8, dangerLow:5, warnHigh:70, dangerHigh:80},
+    {key:'press',label:'压差', unit:'Pa', digits:1, warnLow:10, dangerLow:8.5, warnHigh:22, dangerHigh:25},
+    {key:'pm05', label:'PM0.5', unit:'pcs/m³', digits:0, warnHigh:100000, dangerHigh:250000},
+    {key:'pm5',  label:'PM5', unit:'pcs/m³', digits:0, warnHigh:10000, dangerHigh:20000}
+  ];
+
+  function sevOf(m, v){
+    if(v === null || v === undefined) return 'none';
+    if(m.dangerHigh != null && v >= m.dangerHigh) return 'danger';
+    if(m.warnHigh   != null && v >= m.warnHigh)   return 'warn';
+    if(m.dangerLow  != null && v <= m.dangerLow)  return 'danger';
+    if(m.warnLow    != null && v <= m.warnLow)    return 'warn';
+    return 'ok';
+  }
+  const SEV_RANK = {none:0, ok:1, warn:2, danger:3};
+  const SEV_COLOR = {ok:'#42e09b', warn:'#ffb238', danger:'#ff5567', none:'#2f5a72'};
+
+  function fmt(v, m){
+    if(v === null || v === undefined) return '/';
+    return m.digits === 1 ? v.toFixed(1) : String(Math.round(v));
+  }
+  function compact(v, m){
+    if(v >= 100000) return Math.round(v/1000) + 'k';
+    if(v >= 1000)   return (v/1000).toFixed(1) + 'k';
+    return m.digits === 1 ? v.toFixed(1) : String(Math.round(v));
+  }
+
+  /* ============ 模拟数据 ============ */
+  // 原图 ED01 A 表（15 条，含同名房间多传感器）
+  const ED01_A = [
+    {room:'ED01_正极粉料搅拌间', tag:'送风口', temp:25.7, dew:null, hum:13.7, press:null,  pm05:null,   pm5:null},
+    {room:'ED01_正极匀浆',       tag:'环境1',  temp:24.0, dew:null, hum:null, press:null,  pm05:null,   pm5:null},
+    {room:'ED01_正极涂布机尾',   tag:'机尾',   temp:25.0, dew:null, hum:13.7, press:9.7,  pm05:45749,  pm5:96},
+    {room:'ED01_正极涂布机头',   tag:'机头',   temp:25.8, dew:null, hum:6.3,  press:18.3, pm05:113324, pm5:2437},
+    {room:'ED01_正极预分切/辊分',tag:'北侧',   temp:26.1, dew:null, hum:6.4,  press:16.2, pm05:131264, pm5:3184},
+    {room:'ED01_正极预分切/辊分',tag:'南侧',   temp:24.6, dew:null, hum:6.0,  press:17.2, pm05:7766,   pm5:0},
+    {room:'ED01_正极预分切/辊分',tag:'箱体#1', temp:25.7, dew:null, hum:5.2,  press:null, pm05:null,   pm5:null},
+    {room:'ED01_正极预分切/辊分',tag:'箱体#2', temp:24.2, dew:null, hum:5.2,  press:null, pm05:null,   pm5:null},
+    {room:'ED01_正极预分切/辊分',tag:'环境2',  temp:25.3, dew:null, hum:4.8,  press:null, pm05:37460,  pm5:2078},
+    {room:'ED01_负极粉料搅拌间', tag:'送风口', temp:24.7, dew:null, hum:19.9, press:null, pm05:null,   pm5:null},
+    {room:'ED01_负极匀浆',       tag:'环境1',  temp:22.5, dew:null, hum:null, press:null, pm05:null,   pm5:null},
+    {room:'ED01_负极涂布机尾',   tag:'机尾',   temp:23.7, dew:null, hum:22.6, press:8.2,  pm05:324280, pm5:18292},
+    {room:'ED01_负极涂布机头',   tag:'机头',   temp:25.1, dew:null, hum:18.5, press:12.4, pm05:490866, pm5:11938},
+    {room:'ED01_负极预分切/辊分',tag:'北侧',   temp:26.3, dew:null, hum:18.2, press:8.7,  pm05:395400, pm5:22705},
+    {room:'ED01_负极预分切/辊分',tag:'南侧',   temp:25.2, dew:null, hum:19.1, press:null, pm05:null,   pm5:null}
+  ];
+
+  // 原图 ED01 B 表（5 条同一房间）
+  const ED01_B = [
+    {room:'ED01_负极预分切/辊分', tag:'箱体#1', temp:26.2, dew:null, hum:17.9, press:null, pm05:null,  pm5:null},
+    {room:'ED01_负极预分切/辊分', tag:'箱体#2', temp:23.9, dew:null, hum:20.8, press:15.7, pm05:59346, pm5:675},
+    {room:'ED01_负极预分切/辊分', tag:'箱体#3', temp:25.9, dew:null, hum:17.8, press:null, pm05:null,  pm5:null},
+    {room:'ED01_负极预分切/辊分', tag:'箱体#4', temp:24.0, dew:null, hum:20.1, press:null, pm05:45787, pm5:11347},
+    {room:'ED01_负极预分切/辊分', tag:'箱体#5', temp:26.1, dew:null, hum:17.3, press:null, pm05:null,  pm5:null}
+  ];
+
+  function mulberry32(a){
+    return function(){
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      let t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  const POS = ['送风口','回风口','机头','机尾','北侧','南侧','箱体#1','箱体#2','环境2'];
+
+  const ROOM_PLAN = [
+    {name:'正极粉料搅拌间', n:1},
+    {name:'正极匀浆', n:2},
+    {name:'正极涂布机尾', n:1},
+    {name:'正极涂布机头', n:1},
+    {name:'正极预分切/辊分', n:5},
+    {name:'负极粉料搅拌间', n:1},
+    {name:'负极匀浆', n:1},
+    {name:'负极涂布机尾', n:1},
+    {name:'负极涂布机头', n:1},
+    {name:'负极预分切/辊分', n:2}
+  ];
+
+  function genRecords(prefix, seed, plan){
+    const rnd = mulberry32(seed);
+    const recs = [];
+    plan.forEach(function(rp, ri){
+      for(let s=0; s<rp.n; s++){
+        recs.push({
+          room: prefix + '_' + rp.name,
+          tag: POS[(ri * 3 + s) % POS.length],
+          temp: +(21.8 + rnd() * 4.6).toFixed(1),
+          dew: null,
+          hum: +(5.2 + rnd() * 17.5).toFixed(1),
+          press: rnd() < .45 ? null : +(7.2 + rnd() * 15).toFixed(1),
+          pm05: rnd() < .42 ? null : Math.round(rnd() * 470000),
+          pm5: rnd() < .42 ? null : Math.round(rnd() * 24000)
+        });
+      }
+    });
+    return recs;
+  }
+
+  const IMPORTANT_ROOMS = [
+    {room:'重要辅房_装配内拆包间', tag:'送风口', temp:24.1, dew:null, hum:16.2, press:11.2, pm05:62034, pm5:2140},
+    {room:'重要辅房_装配内拆包间', tag:'回风口', temp:25.3, dew:null, hum:18.8, press:null, pm05:null,  pm5:null},
+    {room:'重要辅房_正极内拆包',   tag:'送风口', temp:26.4, dew:null, hum:7.1,  press:9.2,  pm05:158420, pm5:5380},
+    {room:'重要辅房_正极极卷库1',  tag:'环境1',  temp:25.0, dew:null, hum:9.4,  press:13.6, pm05:88620,  pm5:3020},
+    {room:'重要辅房_正极极卷库1',  tag:'环境2',  temp:24.4, dew:null, hum:8.8,  press:null, pm05:null,   pm5:null},
+    {room:'重要辅房_IQC负极扣电处理室', tag:'送风口', temp:23.2, dew:null, hum:6.2, press:8.6, pm05:90420, pm5:4860},
+    {room:'重要辅房_IQC负极扣电处理室', tag:'回风口', temp:24.8, dew:null, hum:12.1, press:null, pm05:null, pm5:null}
+  ];
+
+  const LINE_KEYS = ['ED01','CL01','ED02','CL02','MD01','MD02','重要辅房'];
+  const ALARM_LINES = {ED02:true, '重要辅房':true};
+
+  const LINE_DATA = {};
+  LINE_DATA['ED01'] = {a:ED01_A, b:ED01_B};
+  LINE_DATA['CL01'] = {a:genRecords('CL01', 91, ROOM_PLAN), b:genRecords('CL01', 92, [{name:'负极预分切/辊分', n:5}])};
+  LINE_DATA['ED02'] = {a:genRecords('ED02', 131, ROOM_PLAN), b:genRecords('ED02', 132, [{name:'负极预分切/辊分', n:5}])};
+  LINE_DATA['CL02'] = {a:genRecords('CL02', 171, ROOM_PLAN), b:genRecords('CL02', 172, [{name:'负极预分切/辊分', n:5}])};
+  LINE_DATA['MD01'] = {a:genRecords('MD01', 211, ROOM_PLAN), b:genRecords('MD01', 212, [{name:'负极预分切/辊分', n:5}])};
+  LINE_DATA['MD02'] = {a:genRecords('MD02', 251, ROOM_PLAN), b:genRecords('MD02', 252, [{name:'负极预分切/辊分', n:5}])};
+  LINE_DATA['重要辅房'] = {a:IMPORTANT_ROOMS, b:genRecords('重要辅房', 292, [{name:'负极预分切/辊分', n:4}])};
+
+  /* ============ 状态 ============ */
+  const state = {
+    line: 'ED01',
+    fold: true,
+    onlyAbnormal: false,
+    expanded: {a:new Set(), b:new Set()},
+    riskPage: 0
+  };
+
+  const $ = function(sel, root){ return (root || document).querySelector(sel); };
+  const $all = function(sel, root){ return Array.prototype.slice.call((root || document).querySelectorAll(sel)); };
+
+  function esc(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+
+  /* ============ 产线标签 ============ */
+  function renderLines(){
+    const wrap = $('#lines');
+    wrap.innerHTML = LINE_KEYS.map(function(k){
+      const active = k === state.line ? ' active' : '';
+      const alarm = ALARM_LINES[k] ? '<span class="alarm">!</span>' : '';
+      return '<button class="line-tab'+active+'" role="tab" aria-selected="'+(k===state.line)+'" data-line="'+k+'">'+
+        '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">'+
+        '<path d="M3 20V9l5 3V9l5 3V6l8 5v9z"/><path d="M7 20v-3M13 20v-3"/></svg>'+
+        esc(k) + alarm + '</button>';
+    }).join('');
+  }
+
+  /* ============ 分组与聚合 ============ */
+  function groupRecords(records){
+    const map = new Map();
+    const groups = [];
+    records.forEach(function(r, i){
+      if(!map.has(r.room)){
+        const g = {room:r.room, items:[]};
+        map.set(r.room, g);
+        groups.push(g);
+      }
+      map.get(r.room).items.push(Object.assign({}, r, {idx:i}));
+    });
+    return groups;
+  }
+
+  function recordSeverity(r){
+    let worst = 'ok';
+    METRICS.forEach(function(m){
+      const s = sevOf(m, r[m.key]);
+      if(SEV_RANK[s] > SEV_RANK[worst]) worst = s;
+    });
+    return worst;
+  }
+
+  function aggregate(items, m){
+    const vals = items.map(function(it){ return it[m.key]; }).filter(function(v){ return v !== null && v !== undefined; });
+    if(!vals.length) return {text:'/', sev:'none', min:null, max:null, avg:null, exceed:0, count:0};
+    let min = vals[0], max = vals[0], sum = 0, exceed = 0;
+    vals.forEach(function(v){
+      if(v < min) min = v;
+      if(v > max) max = v;
+      sum += v;
+      if(sevOf(m, v) !== 'ok') exceed++;
+    });
+    const worst = vals.reduce(function(acc, v){
+      const s = sevOf(m, v);
+      return SEV_RANK[s] > SEV_RANK[acc] ? s : acc;
+    }, 'ok');
+    const text = min === max ? compact(min, m) : compact(min, m) + '~' + compact(max, m);
+    return {text:text, sev:worst, min:min, max:max, avg:sum / vals.length, exceed:exceed, count:vals.length};
+  }
+
+  function groupInfo(g){
+    let worst = 'ok', exceedSensors = 0;
+    g.items.forEach(function(it){
+      if(recordSeverity(it) !== 'ok') exceedSensors++;
+    });
+    METRICS.forEach(function(m){
+      const a = aggregate(g.items, m);
+      if(SEV_RANK[a.sev] > SEV_RANK[worst]) worst = a.sev;
+    });
+    return {worst:worst, exceed:exceedSensors};
+  }
+
+  /* ============ 渲染表格 ============ */
+  function arrowSVG(){
+    return '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 5l7 7-7 7"/></svg>';
+  }
+
+  function detailRowHTML(key, gi, di, it, open, alt){
+    const cells = METRICS.map(function(m){
+      const s = sevOf(m, it[m.key]);
+      return '<div class="cell num sev-'+s+'" role="cell">'+fmt(it[m.key], m)+'</div>';
+    }).join('');
+    return '<div class="row detail'+(alt?' alt':'')+'" role="row" id="grp-'+key+'-'+gi+'-'+di+'"'+(open?'':' hidden')+'>'+
+      '<div class="cell room" role="cell">'+
+        '<span class="tree"></span>'+
+        '<span class="pt-no">#'+String(di + 1).padStart(2,'0')+'</span>'+
+        '<span class="pt-tag">'+esc(it.tag)+'</span>'+
+      '</div>'+cells+'</div>';
+  }
+
+  function groupRowHTML(key, gi, g){
+    const info = groupInfo(g);
+    const open = state.expanded[key].has(g.room);
+    const cells = METRICS.map(function(m){
+      const a = aggregate(g.items, m);
+      const tip = a.count
+        ? m.label+'：最小 '+fmt(a.min,m)+' / 最大 '+fmt(a.max,m)+' / 平均 '+fmt(+a.avg.toFixed(m.digits),m)+m.unit+' · 超标 '+a.exceed+'/'+a.count+' 点位'
+        : m.label+'：无数据';
+      return '<div class="cell num agg-'+a.sev+'" role="cell" title="'+esc(tip)+'">'+
+        '<span class="rng">'+a.text+'</span></div>';
+    }).join('');
+    const alarm = info.exceed > 0
+      ? '<span class="alarm-chip">'+(g.items.length === 1 ? '超标' : info.exceed+'/'+g.items.length+' 超标')+'</span>' : '';
+    const ids = g.items.map(function(_, i){ return 'grp-'+key+'-'+gi+'-'+i; }).join(' ');
+    return '<div class="row grp'+(open?' open':'')+'" role="row" tabindex="0" aria-expanded="'+open+'" '+
+      'aria-controls="'+ids+'" data-room="'+esc(g.room)+'" data-gi="'+gi+'" data-key="'+key+'" '+
+      'style="--sev:'+SEV_COLOR[info.worst]+'">'+
+      '<div class="cell room" role="cell">'+
+        '<span class="arrow" aria-hidden="true">'+arrowSVG()+'</span>'+
+        '<span class="g-text">'+
+          '<span class="room-name" title="'+esc(g.room)+'">'+esc(g.room)+'</span>'+
+          '<span class="g-meta"><span class="pt-count">'+g.items.length+' 个点位</span>'+alarm+'</span>'+
+        '</span>'+
+      '</div>'+cells+'</div>';
+  }
+
+  function flatRowHTML(it, alt){
+    const cells = METRICS.map(function(m){
+      const s = sevOf(m, it[m.key]);
+      return '<div class="cell num sev-'+s+'" role="cell">'+fmt(it[m.key], m)+'</div>';
+    }).join('');
+    return '<div class="row flat'+(alt?' alt':'')+'" role="row">'+
+      '<div class="cell room" role="cell">'+
+        '<span class="room-name">'+esc(it.room)+'</span>'+
+        '<span class="flat-tag">'+esc(it.tag)+'</span>'+
+      '</div>'+cells+'</div>';
+  }
+
+  function renderTable(key){
+    const records = LINE_DATA[state.line][key];
+    const body = $('#body-'+key);
+    const meta = $('[data-meta="'+key+'"]');
+    const mode = $('[data-mode="'+key+'"]');
+    const groups = groupRecords(records);
+    const expanded = state.expanded[key];
+    let html = '';
+
+    if(!state.fold){
+      const rows = records.filter(function(r){
+        return !state.onlyAbnormal || recordSeverity(r) !== 'ok';
+      });
+      html = rows.length
+        ? rows.map(function(r, i){ return flatRowHTML(r, i % 2 === 1); }).join('')
+        : '<div class="tbl-empty">当前筛选下暂无数据</div>';
+      meta.textContent = records.length + ' 个点位 · ' + groups.length + ' 个房间';
+      mode.textContent = '原始平铺';
+      mode.classList.add('flat');
+    }else{
+      const visible = groups.filter(function(g){
+        if(!state.onlyAbnormal) return true;
+        return groupInfo(g).exceed > 0;
+      });
+      visible.forEach(function(g){
+        const gi = groups.indexOf(g);
+        const open = expanded.has(g.room);
+        html += groupRowHTML(key, gi, g);
+        g.items.forEach(function(it, i){
+          html += detailRowHTML(key, gi, i, it, open, i % 2 === 1);
+        });
+      });
+      if(!visible.length) html = '<div class="tbl-empty">当前筛选下暂无超标房间</div>';
+      meta.textContent = records.length + ' 个点位 · ' + groups.length + ' 个房间';
+      mode.textContent = '按房间折叠';
+      mode.classList.remove('flat');
+    }
+    body.innerHTML = html;
+  }
+
+  function renderTables(){
+    renderTable('a');
+    renderTable('b');
+    const ta = $('[data-title="a"]'), tb = $('[data-title="b"]');
+    if(ta) ta.textContent = state.line + ' · 环境实时数据 A';
+    if(tb) tb.textContent = state.line + ' · 环境实时数据 B';
+    updateAbnCount();
+  }
+
+  /* ============ 超标计数 ============ */
+  function countAbnormal(){
+    let n = 0;
+    ['a','b'].forEach(function(k){
+      LINE_DATA[state.line][k].forEach(function(r){
+        if(recordSeverity(r) !== 'ok') n++;
+      });
+    });
+    return n;
+  }
+  function updateAbnCount(){
+    $('#abnCount').textContent = countAbnormal();
+  }
+
+  /* ============ 展开/收起 ============ */
+  function setGroupOpen(grp, open){
+    const key = grp.dataset.key;
+    const room = grp.dataset.room;
+    const set = state.expanded[key];
+    if(open) set.add(room); else set.delete(room);
+    grp.setAttribute('aria-expanded', String(open));
+    grp.classList.toggle('open', open);
+    let el = grp.nextElementSibling;
+    let i = 0;
+    while(el && el.classList.contains('detail')){
+      el.hidden = !open;
+      if(open){
+        el.style.animationDelay = (i * 14) + 'ms';
+      }
+      el = el.nextElementSibling;
+      i++;
+    }
+  }
+
+  function toggleGroup(grp){
+    setGroupOpen(grp, grp.getAttribute('aria-expanded') !== 'true');
+  }
+
+  function bindTableBody(body){
+    body.addEventListener('click', function(e){
+      const grp = e.target.closest('.grp');
+      if(grp) toggleGroup(grp);
+    });
+    body.addEventListener('keydown', function(e){
+      const grp = e.target.closest('.grp');
+      if(!grp) return;
+      if(e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar'){
+        e.preventDefault();
+        toggleGroup(grp);
+      }else if(e.key === 'ArrowRight'){
+        e.preventDefault();
+        if(grp.getAttribute('aria-expanded') !== 'true') setGroupOpen(grp, true);
+      }else if(e.key === 'ArrowLeft'){
+        e.preventDefault();
+        if(grp.getAttribute('aria-expanded') === 'true') setGroupOpen(grp, false);
+      }
+    });
+  }
+
+  /* ============ 工具栏 ============ */
+  function syncToolbar(){
+    $('#foldSwitch').setAttribute('aria-checked', String(state.fold));
+    $('#expandAll').disabled = !state.fold;
+    $('#collapseAll').disabled = !state.fold;
+    $('#abnFilter').setAttribute('aria-pressed', String(state.onlyAbnormal));
+  }
+
+  function expandAll(){
+    ['a','b'].forEach(function(k){
+      const groups = groupRecords(LINE_DATA[state.line][k]);
+      groups.forEach(function(g){
+        if(state.onlyAbnormal && groupInfo(g).exceed === 0) return;
+        state.expanded[k].add(g.room);
+      });
+    });
+    renderTables();
+  }
+  function collapseAll(){
+    ['a','b'].forEach(function(k){
+      const groups = groupRecords(LINE_DATA[state.line][k]);
+      groups.forEach(function(g){ state.expanded[k].delete(g.room); });
+      state.expanded[k].clear();
+    });
+    renderTables();
+  }
+
+  /* ============ 右侧高风险房间 ============ */
+  const RISK = [
+    {line:'重要辅房',    room:'装配内拆包间', score:89.275},
+    {line:'成品仓\\来料仓', room:'1F-立库区-负极粉料+箔材', score:91.9},
+    {line:'重要辅房',    room:'正极内拆包', score:95.125},
+    {line:'重要辅房',    room:'正极极卷库1', score:95.5},
+    {line:'重要辅房',    room:'IQC负极扣电处理室', score:95.725},
+    {line:'ED02',        room:'ED02_负极涂布机头', score:95.8},
+    {line:'ED02',        room:'ED02_负极涂布机尾', score:96.2},
+    {line:'CL01',        room:'CL01_正极预分切/辊分', score:93.45},
+    {line:'CL01',        room:'CL01_负极烘箱', score:92.75},
+    {line:'CL02',        room:'CL02_正极涂布机头', score:90.6},
+    {line:'MD01',        room:'MD01_负极匀浆', score:88.95},
+    {line:'MD01',        room:'MD01_负极涂布机尾', score:87.4},
+    {line:'MD02',        room:'MD02_正极粉料搅拌间', score:86.15},
+    {line:'重要辅房',    room:'成品仓合膜一线', score:94.35},
+    {line:'重要辅房',    room:'前驱预热间', score:89.375}
+  ];
+  const RISK_PAGE_SIZE = 6;
+
+  function renderRisk(){
+    const pages = Math.ceil(RISK.length / RISK_PAGE_SIZE);
+    if(state.riskPage > pages - 1) state.riskPage = pages - 1;
+    const start = state.riskPage * RISK_PAGE_SIZE;
+    const items = RISK.slice(start, start + RISK_PAGE_SIZE);
+    $('#riskList').innerHTML = items.map(function(it){
+      return '<div class="risk-row">'+
+        '<div class="line" title="'+esc(it.line)+'">'+esc(it.line)+'</div>'+
+        '<div class="room" title="'+esc(it.room)+'">'+esc(it.room)+'</div>'+
+        '<div class="score'+(it.score >= 95 ? ' hot' : '')+'">'+it.score.toFixed(3).replace(/0+$/,'').replace(/\.$/,'')+'</div>'+
+        '<div><button class="detail-btn" data-room="'+esc(it.room)+'">查看详情'+
+          '<svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M9 5l7 7-7 7"/></svg>'+
+        '</button></div>'+
+      '</div>';
+    }).join('');
+    $('#riskPage').textContent = (state.riskPage + 1) + ' / ' + pages;
+    $('#riskPrev').disabled = state.riskPage === 0;
+    $('#riskNext').disabled = state.riskPage >= pages - 1;
+  }
+
+  /* ============ 底部告警 ============ */
+  const ALERTS = [
+    {level:'bad',  line:'ED02_负极涂布机头', text:'洁净度异常：5μm洁净度严重超标（null pcs/m³），超过洁净度标准，请运维人员立即处理！', time:'2026-11-09 09:54:24'},
+    {level:'warn', line:'IQC电极取制样间', text:'湿度异常：露点超标（-32.5℃），超过告警标准（-40.0℃），请运维人员及时关注！', time:'2026-11-09 09:38:27'},
+    {level:'warn', line:'ED01_正极预分切/辊分', text:'压差异常：压差低于下限（8.2 Pa），低于标准（10.0 Pa），请确认风机运行状态！', time:'2026-11-09 09:21:05'},
+    {level:'bad',  line:'CL01_负极涂布机头', text:'温度异常：温度超过上限（27.9℃），超过告警标准（27.5℃），请检查空调机组！', time:'2026-11-09 08:57:41'}
+  ];
+
+  function renderAlerts(){
+    $('#alertList').innerHTML = ALERTS.map(function(a){
+      return '<div class="alert">'+
+        '<span class="lvl '+(a.level === 'bad' ? 'bad' : 'warn')+'">'+(a.level === 'bad' ? '异常' : '预警')+'</span>'+
+        '<div class="txt"><b>['+esc(a.line)+']</b> '+esc(a.text)+
+          '<span class="time">开始于 '+esc(a.time)+'</span></div>'+
+      '</div>';
+    }).join('');
+  }
+
+  /* ============ 时钟 ============ */
+  function tickClock(){
+    const d = new Date();
+    const p = function(n){ return String(n).padStart(2, '0'); };
+    $('#clock').textContent = p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+    const week = ['星期日','星期一','星期二','星期三','星期四','星期五','星期六'][d.getDay()];
+    $('#date').textContent = d.getFullYear() + '.' + p(d.getMonth() + 1) + '.' + p(d.getDate()) + ' ' + week;
+  }
+
+  /* ============ 提示 ============ */
+  let toastTimer = null;
+  function toast(msg){
+    const el = $('#toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ el.classList.remove('show'); }, 1800);
+  }
+
+  /* ============ 事件绑定 ============ */
+  function bindEvents(){
+    $('#lines').addEventListener('click', function(e){
+      const tab = e.target.closest('.line-tab');
+      if(!tab || tab.dataset.line === state.line) return;
+      state.line = tab.dataset.line;
+      renderLines();
+      renderTables();
+    });
+
+    $('#foldSwitch').addEventListener('click', function(){
+      state.fold = !state.fold;
+      syncToolbar();
+      renderTables();
+      toast(state.fold ? '已开启按房间折叠' : '已恢复原始平铺视图');
+    });
+
+    $('#expandAll').addEventListener('click', function(){
+      if(!state.fold) return;
+      expandAll();
+      toast('已展开当前筛选下的全部房间');
+    });
+
+    $('#collapseAll').addEventListener('click', function(){
+      if(!state.fold) return;
+      collapseAll();
+      toast('已收起全部房间');
+    });
+
+    $('#abnFilter').addEventListener('click', function(){
+      state.onlyAbnormal = !state.onlyAbnormal;
+      syncToolbar();
+      renderTables();
+      toast(state.onlyAbnormal ? '仅显示存在超标点位的房间' : '已显示全部房间');
+    });
+
+    bindTableBody($('#body-a'));
+    bindTableBody($('#body-b'));
+
+    $('#riskPrev').addEventListener('click', function(){
+      if(state.riskPage > 0){ state.riskPage--; renderRisk(); }
+    });
+    $('#riskNext').addEventListener('click', function(){
+      const pages = Math.ceil(RISK.length / RISK_PAGE_SIZE);
+      if(state.riskPage < pages - 1){ state.riskPage++; renderRisk(); }
+    });
+    $('#riskList').addEventListener('click', function(e){
+      const btn = e.target.closest('.detail-btn');
+      if(!btn) return;
+      toast('打开房间详情：' + btn.dataset.room + '（演示）');
+    });
+  }
+
+  /* ============ 启动 ============ */
+  renderLines();
+  renderTables();
+  renderRisk();
+  renderAlerts();
+  syncToolbar();
+  tickClock();
+  setInterval(tickClock, 1000);
+  bindEvents();
+
+})();
+</script>
+</body>
+</html>
